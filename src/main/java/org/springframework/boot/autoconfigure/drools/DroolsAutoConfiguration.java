@@ -40,11 +40,10 @@ public class DroolsAutoConfiguration {
       }
     });
     KieFileSystem kfs = ks.newKieFileSystem();
-    Resource[] files = new PathMatchingResourcePatternResolver().getResources("classpath*:com/oudmaijer/**/*.drl");
+    Resource[] files = new PathMatchingResourcePatternResolver().getResources("classpath*:rules/**/*.*");
 
     for (Resource file : files) {
-      String myString = convertStreamToString(file.getInputStream());
-      kfs.write("src/main/resources/" + file.getFilename(), myString);
+      kfs.write("src/main/resources/" + file.getFilename(), convertStreamToString(file.getInputStream()));
     }
 
     KieBuilder kb = ks.newKieBuilder(kfs);

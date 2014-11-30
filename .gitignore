@@ -7,3 +7,5 @@ hs_err_pid*
 bin
 target
 build
+.ide
+.idea
