@@ -4,6 +4,8 @@ import org.kie.api.KieBase;
 import org.kie.api.KieServices;
 import org.kie.api.builder.*;
 import org.kie.api.runtime.KieContainer;
+import org.springframework.beans.factory.BeanFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,41 +16,46 @@ import java.io.IOException;
 import java.util.Scanner;
 
 @Configuration
-@ConditionalOnMissingBean(value = { KieBase.class, KieContainer.class })
 public class DroolsAutoConfiguration {
 
-	private static String convertStreamToString(java.io.InputStream is) {
-		try (Scanner scanner = new Scanner(is, "UTF-8")) {
-			scanner.useDelimiter("\\A");
-			return scanner.hasNext() ? scanner.next() : "";
-		}
-	}
+  @Autowired
+  private BeanFactory beanFactory;
 
-	@Bean
-	public KieContainer kieContainer() throws IOException {
-		KieServices ks = KieServices.Factory.get();
-		final KieRepository kr = ks.getRepository();
-		kr.addKieModule(new KieModule() {
-			@Override
-			public ReleaseId getReleaseId() {
-				return kr.getDefaultReleaseId();
-			}
-		});
-		KieFileSystem kfs = ks.newKieFileSystem();
-		Resource[] files = new PathMatchingResourcePatternResolver().getResources("classpath*:rules/**.*");
+  private static String convertStreamToString(java.io.InputStream is) {
+    try (Scanner scanner = new Scanner(is, "UTF-8")) {
+      scanner.useDelimiter("\\A");
+      return scanner.hasNext() ? scanner.next() : "";
+    }
+  }
 
-		for (Resource file : files) {
-			String myString = convertStreamToString(file.getInputStream());
-			kfs.write("src/main/resources/" + file.getFilename(), myString);
-		}
+  @Bean
+  @ConditionalOnMissingBean(KieContainer.class)
+  public KieContainer kieContainer() throws IOException {
+    KieServices ks = KieServices.Factory.get();
+    final KieRepository kr = ks.getRepository();
+    kr.addKieModule(new KieModule() {
+      @Override
+      public ReleaseId getReleaseId() {
+        return kr.getDefaultReleaseId();
+      }
+    });
+    KieFileSystem kfs = ks.newKieFileSystem();
+    Resource[] files = new PathMatchingResourcePatternResolver().getResources("classpath*:com/oudmaijer/**/*.drl");
 
-		KieBuilder kb = ks.newKieBuilder(kfs);
-		kb.buildAll();
-		return ks.newKieContainer(kr.getDefaultReleaseId());
-	}
+    for (Resource file : files) {
+      String myString = convertStreamToString(file.getInputStream());
+      kfs.write("src/main/resources/" + file.getFilename(), myString);
+    }
 
-	@Bean
-	public KieBase kieBase() throws IOException {
-		return kieContainer().getKieBase();
-	}
+    KieBuilder kb = ks.newKieBuilder(kfs);
+    kb.buildAll(); // kieModule is automatically deployed to KieRepository if successfully built.
+    KieContainer kContainer = ks.newKieContainer(kr.getDefaultReleaseId());
+    return kContainer;
+  }
+
+  @Bean
+  @ConditionalOnMissingBean(KieBase.class)
+  public KieBase kieBase() throws IOException {
+    return beanFactory.getBean(KieContainer.class).getKieBase();
+  }
 }
